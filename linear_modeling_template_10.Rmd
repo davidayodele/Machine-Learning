@@ -1,0 +1,1055 @@
+---
+title: "INFSCI 2595: Homework 10"
+subtitle: 'Assigned: November 17, 2019, Due: November 26, 2019'
+author: "Your name here"
+date: "Submission time: 11/26/2019 at 9:00PM"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Collaborators
+
+Include the names of your collaborators here.  
+
+## Overview
+
+In this assignment you will focus on tuning machine learning algorithms using the `caret` package. You will practice most of the models we have discussed in this course. You will also get experience working with and interpreting ROC curves. At the conclusion of this assignment you will have completed a small binary classification modeling project from start to finish.  
+
+You will notice that when you run the code chunks warnings might be displayed. Usually the warning messages are disabled, but they are allowed to appear to help with installing packages required by `caret`.  
+
+## Load packages
+
+The code chunk below loads in the following packages. If you do not have `caret` or `plotROC` installed, please do so before starting this assignment. `caret` will you prompt you to download and install all other necessary packages, as required.  
+
+```{r, load_packages, eval=TRUE}
+library(dplyr)
+library(ggplot2)
+
+library(caret)
+
+library(plotROC)
+```
+
+## Read in training data
+
+All problems in this assignment use the same training data set. That data set is loaded in the code chunk below. As shown by the `glimpse()` call, there are 1500 rows with 8 variables. The first 7 variables, `x1` through `x7` are inputs. Five of the 7 inputs are continuous. One input, `x3` is a categorical variable with 5 levels, while `x7` is a binary variable. The last variable, `output`, is the binary response consisting of two levels `"event"` and `"non_event"`. In this assignment you will try and predict the `"event"` class.  
+
+```{r, read_in_train_data, eval=TRUE}
+train_df <- readr::read_csv("https://raw.githubusercontent.com/jyurko/INFSCI_2595_Fall_2019/master/hw_data/10/hw_10_train_data.csv",
+                            col_types = list(readr::col_double(),
+                                             readr::col_double(),
+                                             readr::col_factor(levels = c("A", "B", "C", "D", "E")),
+                                             readr::col_double(),
+                                             readr::col_double(),
+                                             readr::col_double(),
+                                             readr::col_factor(levels = c("aa", "bb")),
+                                             readr::col_factor(levels = c("event", "non_event"))))
+
+train_df %>% glimpse()
+```
+
+## Problem 1
+
+As with any data analysis project, it's best to start out exploring the data before jumping into building models. You will begin by getting a high level overview of summary statistics through a simple exploratory data analysis.  
+
+### 1a)
+
+A quick way to get important summary statistics is to call the `summary()` function. For continuous variables, `summary()` displays important statistics about the central tendancy with the mean and median. `summary()` also gives an idea about the spread in the data by displaying the first and third quartiles, as well as the absolute min and max values observed in the data set. For discrete factor variables, `summary()` provides the number of observations for each unique level.  
+
+#### PROBLEM
+
+**Call the `summary()` function on the training data set, `train_df`. Based on the counts for the discrete variables `x3` and `x7`, are there particular levels that dominate the observations? Based on the counts alone, would you say the binary response, `output`, is a balanced or imbalanced data set?**  
+
+#### SOLUTION
+
+```{r, solution_01a, eval=FALSE}
+### your code here
+```
+
+?  
+
+### 1b)
+
+Let's now visualize the binary response for each of the two discrete factors, starting with the binary variable `x7`.  
+
+#### PROBLEM
+
+**Use `ggplot2` to create a bar chart with `geom_bar()`. Set the `x` aesthetic equal to `x7` in the parent `ggplot()` call. In the `geom_bar()` call set the `fill` aesthetic equal to `output`. Can you tell if the `"event"` occurs more frequently for either of the levels of `x7`?**  
+
+#### SOLUTION
+
+```{r, solution_01b, eval=FALSE}
+### your code here
+```
+
+?  
+
+### 1c)
+
+Now consider the `x3` factor which has 5 unique levels.  
+
+#### PROBLEM
+
+**Use `ggplot2` to create a bar chart with `geom_bar()`. Set the `x` aesthetic equal to `x3` in the parent `ggplot()` call. In the `geom_bar()` call set the `fill` aesthetic equal to `output`. Can you tell if the `"event"` occurs more frequently for either of the levels of `x3`?**  
+
+#### SOLUTION
+
+```{r, solution_01c, eval=FALSE}
+### your code here
+```
+
+?  
+
+### 1d)
+
+Let's now look at the distributions associated with each continuous input. We will first consider the distributions irrespective of the response and the other discrete inputs. The code chunk below reshapes `train_df` to allow visualizing the individual continuous inputs within separate facets. The *marginal* distributions are visualized using the `geom_density()` function. As shown by the figure below, the distributions are essentially uniform.  
+
+```{r, show_density_marg_train, eval=TRUE}
+train_df %>% 
+  tibble::rowid_to_column("obs_id") %>% 
+  tidyr::gather(key = "input_name", value = "value",
+                -obs_id, -x3, -x7, -output) %>% 
+  ggplot(mapping = aes(x = value)) +
+  geom_density() +
+  facet_wrap(~input_name) +
+  theme_bw()
+```
+
+You will now break up each distribution based on the the discrete variable `x3` and the response, `output`. To help understand the structure of the reshaped data set, the code chunk below prints the first 9 rows to the screen.  
+
+```{r, show_long_format_str, eval=TRUE}
+train_df %>% 
+  tibble::rowid_to_column("obs_id") %>% 
+  tidyr::gather(key = "input_name", value = "value",
+                -obs_id, -x3, -x7, -output) %>% 
+  head(9)
+```
+
+
+#### PROBLEM
+
+**You must modify the code which creates the separate distributions by setting the `color` aesthetic in the `geom_density()` call to be equal to `output`. You must also modify the `facet_wrap()` call to be `facet_grid()`. The horizontal facets should be based on the `input_name` variable while `x3` controls the vertical facets.**  
+
+**Based on the visualizations, are there any values of the continuous inputs that seem to be more associated with the `"event"` occuring? Does the `x3` discrete factor influence behavior?**  
+
+*HINT*: The [R for Data Science](https://r4ds.had.co.nz/) book discusses how to create facets if you need a refresher.  
+
+#### SOLUTION
+
+```{r, solution_01d, eval=FALSE}
+### place your modification of the code from
+### the show_density_marg_train code chunk here
+```
+
+?  
+
+### 1e)
+
+Exploratory Data Analysis (EDA) helps us get famaliar with a data set and observe high level trends. EDA can help us make an informed decision about what modeling practices are appropriate to consider.  
+
+#### PROBLEM
+
+**Based on your visualizations, would you feel it is safe to say interactions are not relevant for this problem?**  
+
+#### SOLUTION
+
+?  
+
+## Problem 2
+
+You will now begin to model the binary outcome, `output`, based on the inputs. You will use `caret` to manage the cross-validation data splits and calculate the performance metrics. In this assignment, you will focus on the area under the ROC curve (AUC) as the primary metric of interest for assess model performance. In `caret`, the area under the ROC curve is referred to as ROC.  
+
+### 2a)
+
+As discussed in lecture, the `trainControl()` function is used to tell `caret` how to manage the training and performance assessment. You will specify the arguments of the `trainControl()` function and also specify the primary metric of interest.  
+
+#### PROBLEM
+
+**Specify the `trainControl()` to use 5-fold cross validation. You must specify the `summaryFunction`, `classProbs`, and `savePredictions` appropriately in order to allow creating the ROC curves. You must also set the variable `metric_use` equal to `"ROC"`.**  
+
+#### SOLUTION
+
+```{r, solution_02a, eval=FALSE}
+ctrl_k05 <- 
+
+metric_use <- 
+```
+
+### 2b)
+
+As we have discussed multiple times this semester, it is always important to consider a simple model before building complex ones. So you will begin by fitting a logistic regression model. Your job will be to complete the `train()` function call to fit the logistic regression model.  
+
+The `set.seed()` function is set for you, and is set before all models in this assignment. Using the same random seed forces the random data splits to be the same across all models.
+
+#### PROBLEM
+
+**Complete the code chunk below by specifying the formula to correctly model the binary outcome, `output`, as a function of all other variables in the data set. Set the `data` argument equal to `train_df`. Set the `method` argument equal to `"glm"`, and the `metric` argument equal to the `metric_use` variable defined in Problem 2a). Finally, specify the `trControl` argument equal to the `ctrl_k05` variable you defined in Problem 2a).**  
+
+**Once the code chunk below completes, print the `caret` object `fit_glm` to the screen. What is the area under the ROC curve value (which `caret` calls ROC) for your logistic regression model? Is this value associated with the training set or holdout set error?**  
+
+#### SOLUTION
+
+```{r, solution_02b, eval=FALSE}
+set.seed(98131)
+fit_glm <- 
+```
+
+```{r, solution_02b_b, eval=FALSE}
+fit_glm
+```
+
+?  
+
+### 2c)
+
+This problem consists of 7 inputs. But, how many parameters were learned in the logistic regression model? A simple way to find out is to use the `coef()` function, which extracts the coefficients (parameter) values associated with the model object. You can access the logistic regression model within the `caret` object by calling `fit_glm$finalModel`.  
+
+#### PROBLEM
+
+**Call the `coef()` function on the logistic regression model. How many parameters were learned? Why are the parameters named the way they are?**  
+
+#### SOLUTION
+
+```{r, solution_02c, eval=FALSE}
+### your code here
+```
+
+?  
+
+### 2d)
+
+You will now use regularization with elastic net through the `glmnet` package. We discussed how the penalty or regularization factor for lasso and ridge regression can be tuned via cross-validation. The elastic net uses the same regularization parameter, `lambda`, but also includes a second tuning parameter, `alpha`. The additional parameter is a weighting or mixing parameter which controls which of the two penalty terms, lasso or ridge, is more prevelant.  
+
+You will use the elastic net to a fit a model accounting for interactions between the inputs. Before fitting the model you must determine how many parameters are in a model with all pair-wise and all 3-way interactions.  
+
+#### PROBLEM
+
+**How many parameters must be learned in a generalized linear model with all pair-wise interactions? How many parameters must be learned in a generalized linear model with all 3-way interactions? Why would a model like elastic net be an appropriate choice over a conventional generalized model when considering the interactions in this case?**  
+
+#### SOLUTION
+
+```{r, solution_02d, eval=FALSE}
+### your code here
+```
+
+?  
+
+### 2e)
+
+You will now fit the elastic net model with all pair-wise interactions. You will use the default `caret` search grid for the `alpha` and `lambda` tuning parameters, so you do not need to additional arguments in the call to the `train()` function just yet.  
+
+#### PROBLEM
+
+**Fit an elastic net model with all pair-wise interactions. You must specify the formula correctly and set the `method` argument equal to `"glmnet"`. All other arguments can be the same as the call in Problem 2b). After the code chunk completes, print the `caret` object to the screen.**  
+
+#### SOLUTION
+
+```{r, solution_02e, eval=FALSE}
+set.seed(98131)
+fit_glmnet_2 <- 
+```
+
+```{r, solution_02e_b, eval=FALSE}
+fit_glmnet_2
+```
+
+### 2f)
+
+#### PROBLEM
+
+**Fit another elastic net model using the `caret` default tuning grid. This time however, fit the model allowing for all 3-way interactions. How does the best tuned elastic net with 3-way interactions compare to the best tuned elastic net with pair-wise interactions, based on the area under the ROC curve? Which model type appears to be better?**  
+
+#### SOLUTION
+
+```{r, solution_02f, eval=FALSE}
+set.seed(98131)
+fit_glmnet_3 <- 
+```
+
+```{r, solution_02f_b, eval=FALSE}
+fit_glmnet_3
+```
+
+?  
+
+### 2g)
+
+The `caret` object print outs display the default grid search values used to try and identify the "best" values of `alpha` and `lambda`. This default grid is a great starting point, but let's try and refine it further. You will use the `expand.grid()` function to define a custom grid search over the `alpha` and `lambda` tuning parameters.  
+
+#### PROBLEM
+
+**Complete the code chunk below which creates the grid search `glmnet_grid` over `alpha` and `lambda`, and then executes the training. You must specify `alpha` to be a vector of 4 values: 0.25, 0.55, 0.85, and 1.0. You must specify `lambda` to be a vector from -8 and 0.5 in log-lambda space. Each point is spaced by 0.25 log-lambda units.**  
+
+**You must then perform the training on the elastic net model with all 3-way interactions. In order to use your custom search grid, you must specify `tuneGrid` to be equal to `glmnet_grid`.**  
+
+**After the code chunk completes, rather than printing the results to screen, you will plot the results by calling the `plot()` function on the `caret` object `fit_glmnet_3_b`. Call the `plot()` function two times. In the first call, just plot the results. In the second call set the `xTrans` argument equal to `log` in the `plot()` call. This converts the x-axis to be log-lambda, rather than `lambda` directly.**  
+
+**Which values of the regularization parameter, `lambda`, appear to yield the highest area under the ROC curve? Are there `lambda` values that clearly yield worse results? What did you use to make that judgement?**  
+
+*HINT*: `caret` requires the tuning parameter to correspond to `lambda` **not** log-lambda. By setting the values to be evenly spaced in log-lambda, you must transform the vector appropriately in order to create the `lambda` value required by `caret`.  
+
+#### SOLUTION
+
+```{r, solution_02g_a, eval=FALSE}
+glmnet_grid <- 
+
+set.seed(98131)
+fit_glmnet_3_b <- 
+```
+
+Plot the results.  
+
+```{r, solution_02g_b, eval=FALSE}
+### your code here
+```
+
+```{r, solution_02g_c, eval=FALSE}
+### your code here
+```
+
+?  
+
+### 2h)
+
+You could print the `fit_glmnet_3_b` object to screen, but the print out will be very large. After all, you just trained elastic net models for 140 combinations of `lambda` and `alpha`! So rather than reading through the complete print out, you can access the tuned parameter values directly with the `$bestTune` variable within the `caret` model object. Furthermore, you can the access the different tuning parameters with the `$` operator. For example, to access the best tuned value for `alpha`, you would use `$bestTune$alpha`.  
+
+#### PROBLEM
+
+**Print the best tuning parameters values to screen and calculate the log of the best tuned `lambda` value and print it to screen. Are these values in line with your intepretation of the figures in the previous problem?**  
+
+#### SOLUTION
+
+```{r, solution_02h_a, eval=FALSE}
+### your code here
+```
+
+?  
+
+### 2i)
+
+Just as with the logistic regression model, you can access the final elastic net model object by `$finalModel`. Let's check that the behavior of the elastic net model directly, by calling `plot()` on the final model object. This model object is the result from the `glmnet` package directly, and so provides the same functionality as when we discussed interpreting `glmnet` for lasso regression in lecture.  
+
+#### PROBLEM
+
+**Call `plot()` on the final model object associated with the `fit_glmnet_3_b` `caret` object. Set the `xvar` argument to `"lambda"`. How many parameters are "active" around the `lambda` value you identified as optimal for the 3-way interaction model?**  
+
+#### SOLUTION
+
+```{r, solution_02h, eval=FALSE}
+### your code here
+```
+
+?  
+
+### 2j)
+
+By turning off in-active or unimportant inputs, the elastic net is giving us an idea about what variables matter. We discussed in lecture how the `varImp()` function can be used to display the variable importance rankings for the random forest model. The function can also be used for `glmnet`.  
+
+#### PROBLEM
+
+**Call `plot()` on the `varImp()` function applied to the elastic net model with all 3-way interactions. Then call it again with the `top` argument in the `plot()` call set to 25.**  
+
+**Why does the first plot, which includes all variables, look the way it does? What are the top two important variables according to the elastic net?**  
+
+#### SOLUTION
+
+```{r, solution_02j_a, eval=FALSE}
+### your code here
+```
+
+```{r, solution_02j_b, eval=FALSE}
+### your code here
+```
+
+?  
+
+## Problem 3
+
+Let's start to consider more complex models. You will fit a Support Vector Machine (SVM) with a linear kernel. If you have not used a SVM in `R` before, `caret` will if it can download and install the necessary packages. Follow the instructions within the `R` console and the packages will be installed correctly.  
+
+### 3a)
+
+The linear kernel SVM has a single tuning parameter, the cost `C`. We discussed this parameter in lecture.  
+
+#### PROBLEM
+
+**What does the `C` parameter control within the SVM? Also, how many unknown parameters are there for the SVM in this specific problem?**  
+
+#### SOLUTION
+
+?  
+
+### 3b)
+
+You will fit the SVM with a linear kernel. You will use a custom tuning grid for the `C` parameter. Even though it's a single variable you must still "wrap" the grid values within the `expand.grid()` call. There are several different SVM's with linear kernals available within the `R` ecosystem. However, you will use the library associated with setting the `method` argument equal to `svmLinear`.  
+
+#### PROBLEM
+
+**Specify the grid of possible `C` values to be a regular vector containing 0.25, 0.5, 1.0, and 2.0. Train the SVM with a linear kernel. Set the formula to be the response, `output`, as a function of all other variables in the data set. Set the `method` argument equal to `"svmLinear"`. Set the `tuneGrid` argument equal to the `svm_lin_grid` object. The other arguments should be the same as you used for the logistic regression and elastic net models.**  
+
+**Once the code chunk completes, and it MIGHT TAKE A FEW MINUTES, print the `caret` object to screen. How does the SVM with a linear kernel compare to the best tuned elastic net with all 3-way interactions?**  
+
+#### SOLUTION
+
+```{r, solution_03b, eval=FALSE}
+svm_lin_grid <- 
+
+set.seed(98131)
+fit_svm_lin <- 
+```
+
+```{r, solution_03b_b, eval=FALSE}
+fit_svm_lin
+```
+
+?  
+
+### 3c)
+
+To move beyond linearity, we will use the SVM with a radial basis function. As with the linear kernel, there are multiple libraries to choose from to build this model. You will however use the library associated with the `method` argument equal to `"svmRadial"`. Compared with the linear kernel, the radial basis function kernel has an additional tuning parameter, `sigma`, which controls the behavior of the radial basis or Gaussian kernel.  
+
+You will first use the default `caret` search grid. This will allow the underlying package, `kernlab`, to estimate `sigma`, which serves as a useful starting point for refining the grid later.  
+
+#### PROBLEM
+
+**Train a SVM with a radial basis function. Use the default `caret` search grid by NOT including the `tuneGrid` argument in the `train()` call. Set the remaining arguments to be the same as what you used in Problem 3b), except set the `method` equal to `"svmRadial"`.**  
+
+**After the training completes, print the `caret` object to the screen. What value of `sigma` was used and what was the optimally identified `C` value?**  
+
+#### SOLUTION
+
+```{r, solution_03c_a, eval=FALSE}
+set.seed(98131)
+fit_svm_rbf <- 
+```
+
+```{r, solution_03c_b, eval=FALSE}
+fit_svm_rbf
+```
+
+?  
+
+### 3d)
+
+You will now use a refined grid based on the results from Problem 3c). You will create a search grid that varies `sigma` as being equal to, double that, four times that, and 8 times the value identified within `fit_svm_rbf`. Can you think of how you can access the best tuned value of `sigma` from the `fit_svm_rbf` object?  
+
+#### PROBLEM
+
+**Define the search grid with with the `expand.grid()` function. Set `sigma` to be a vector equal to 1x, 2x, 4x, and 8x times the value identified in Problem 3c). Set the `C` parameter to a vector with elements equal to 0.5,  1, 2, 4, 8, 16, and 32.**  
+
+**Train a new SVM with radial basis function but now use your custom grid search defined in `rbf_grid`. The other arguments should be the same as what you used in Problem 3c).**  
+
+**Once the model training completes, WHICH MIGHT TAKE A FEW MINUTES, print the results to screen and plot the results.**  
+
+**Would continuing to increase the `sigma` or `C` parameters relative to the values from Problem 3c) continue to improve the area under the ROC curve?**  
+
+#### SOLUTION
+
+```{r, solution_03d_a, eval=FALSE}
+rbf_grid <- 
+```
+
+```{r, solution_03d_b, eval=FALSE}
+set.seed(98131)
+fit_svm_rbf_b <- 
+```
+
+```{r, solution_03d_c, eval=FALSE}
+fit_svm_rbf_b
+```
+
+```{r, solution_03d_d, eval=FALSE}
+### your code here
+```
+
+?  
+
+## Problem 4
+
+### 4a)
+
+Up to this point, we have only focused on the area under the ROC curve. However, there are multiple other metrics to consider. You can easily see the confusion matrix performance assessed on the hold-out sets by calling the `confusionMatrix.train()` function on a `caret` model object.  
+
+#### PROBLEM
+
+**Call `confusionMatrix.train()` on the custom search grid elastic net model with all 3-way interactions and the custom search grid SVM with radial basis function. Which model has the higher hold-out average accuracy? Which model is better at predicting the `"event"` when the `"event"` actually occurs? **  
+
+#### SOLUTION
+
+```{r, solution_04a_a, eval=FALSE}
+### your code here
+```
+
+```{r, solution_04a_b, eval=FALSE}
+### your code here
+```
+
+?  
+
+### 4b)
+
+The previous question was alluding to the Sensitivity or True Positive (TP) rate of the models. You might have noticed that in the `caret` model object print outs, there are two other columns next to ROC: Sens, and Spec. Sens is the Sensitivity, or TP rate, and Spec is the Specificity which is related to the False Positive (FP) rate. We will now go through understanding the Sensitivity and Specificity in relationship to the ROC curve itself.  
+
+You will need to work with the hold-out set predictions directly to accomplish this. As discussed in lecture, the predictions are contained within the `$pred` data.frame within the `caret` model object. The first 11 rows associated with the hold-out set predictions for the `fit_svm_rbf_b` object are printed to screen for you in the code chunk below.  
+
+```{r, show_caret_holdout_pred_str, eval=FALSE}
+fit_svm_rbf_b$pred %>% tbl_df() %>% head(11)
+```
+
+The last column `Resample` is an identifer for the resample Fold ID (in this case). The code chunk below counts the number of rows in the hold-out prediction object associated with each Fold.  
+
+```{r, show_resample_fold_count_rbf, eval=FALSE}
+fit_svm_rbf_b$pred %>% tbl_df() %>% 
+  count(Resample)
+```
+
+The reason why it seems like there are so many predictions, is because of all of the `C` and `sigma` combinations that were tried! To simplify things, you will focus just on the best tuned case when creating the ROC curves.  
+
+#### PROBLEM
+
+**Complete the code chunk below which filters the hold-out prediction object for the SVM radial basis kernel to focus just on the best tuned `C` and `sigma` values. In addition, you must focus just on `"Fold1"`. The result is stored to the `best_svm_rbf_F1_pred` object.**  
+
+**How can you check if the resulting object has the correct number of rows?**  
+
+*HINT*: How can you access the best tuned `C` and `sigma` values?  
+
+#### SOLUTION
+
+```{r, solution_04b, eval=FALSE}
+best_svm_rbf_F1_pred <- fit_svm_rbf_b$pred %>% tbl_df() %>% 
+  filter()
+```
+
+?  
+
+### 4c)
+
+The `confusionMatrix.train()` function is specific to `caret` trained model objects. However, `caret` includes a more general function `confusionMatrix()` which requires at minimum two input arguments, the predicted class and the observed/target/reference class. The generic syntax is shown below:  
+
+`confusionMatrix(<predicted class vector>, <observed/target/refernce class vector>)`
+
+This call produces a confusion matrix that returns counts rather than percentages. Substantial more information is printed to screen as well, including the 95% confidence interval on the Accuracy, the Senstivity, and the Specificity. The funciton also tells you which class label (`"event"` or `"non_event"` in this problem) is considered to be the "Positive" class within the confusion matrix.  
+
+#### PROBLEM
+
+**Call the `confusionMatrix()` function on the radial basis kernel SVM by passing in the predicted class and observed class correctly. How many False-Positive counts were observed in this fold?**  
+
+**After calling the function and printing the results to screen, call the `confusionMatrix()` function a second time, but this time save the results to the variable `best_svm_rbf_F1_cm`. Doing this allows you to access the confusion matrix results programmatically. To access the Sensitivity, you would use `best_svm_rbf_F1_cm$byClass["Sensitivity"]`. Print the Sensitivity to the screen and check it is the same as what was displayed when you called the `confusionMatrix()` function directly.**  
+
+#### SOLUTION
+
+```{r, solution_04c, eval=FALSE}
+### your code here
+```
+
+?  
+
+### 4d)
+
+You will now plot the ROC curve associated with Fold 1 and the best tuned radial basis function SVM. You will use the `plotROC` package set of functions discussed in lecture to generate the ROC curve. Remember that within the `plotROC` syntax, you must set the probability of the EVENT of interest to the `m` aesthetic within the parent `ggplot()` call. You must also set the **observed** EVENT of interest as a 1 (if it occurred) and a 0 if it did not occur to the `d` aesthetic within the parent `ggplot()` call. The ROC curve itself is created by the `geom_roc()` function, where you can specify other grouping variables (such as through the `color` aesthetic) and the number of "cuts" or specific "cut" values to display. The "cut" corresponds to the probability threshold value used to classify the EVENT.  
+
+#### PROBLEM
+
+**Create the ROC curve using the variables contained within `best_svm_rbf_F1_pred` object. Specify the `m` and `d` aesthetics within the parent `ggplot()` call correctly. Specify the `cutoffs.at` argument within the `geom_roc()` call to be equal to 0.5. After the `geom_roc()` call, use the `coord_equal()` and `style_roc()` function calls.**  
+
+#### SOLUTION
+
+```{r, solution_04d, eval=FALSE}
+### the lecture slides from week 12 help with
+### creating ROC curves from the plotROC package
+```
+
+### 4e)
+
+In Problem 4c) you saved the confusion matrix calculations to an object, `best_svm_rbf_F1_cm`. This allows you to programmatically access the Sensitivity and Specificity associated with the results. To help intepret the ROC curve, you will now plot the Sensitivity as a red dashed horizontal line, and 1 - Specificity as a red dashed vertical line.  
+
+#### PROBLEM
+
+**Remake the ROC curve from Problem 4d). This time include the `geom_hline()` and `geom_vline()` before the `coord_equal()` "layer". Within `geom_hline()` set the `yintercept` argument equal to the Sensitivity. Within `geom_vline()` set the `xintercept` argument equal to 1 - Specificity. Within both `geom_hlin()` and `geom_vline()` set the `color` argument to `"red"` and the `linetype` argument to `"dashed"`.**  
+
+**Based on the resulting figure, what threshold value do you think is used to calculate the reported Sensitivity and Specificity values in the `confusionMatrix()` function?**  
+
+*HINT*: Look back at how to access the Sensitivity from the saved confusion matrix object.  
+
+#### SOLUTION
+
+```{r, solution_04e, eval=FALSE}
+### your code here
+```
+
+?  
+
+### 4f)
+
+The ROC curve you created in the previous problems corresponds to just a single Fold. In this problem, you will repeat the previous set of actions, but this time for fold 4.  
+
+#### PROBLEM
+
+**Create the `best_svm_rbf_F4_pred` object by filtering to just the fourth fold associated with the best tuning parameter values. Calculate the confusion matrix and store to `best_svm_rbf_F4_cm`. Generate the ROC curve and include the Sensitivity and 1 - Specificity as horizontal and vertical dashed lines, respectively.**  
+
+**How does the fourth fold compare to the performance of the first fold you visualized previously?**  
+
+#### SOLUTION
+
+```{r, solution_04f, eval=FALSE}
+best_svm_rbf_F4_pred <- fit_svm_rbf_b$pred %>% tbl_df() %>% 
+  filter()
+
+best_svm_rbf_F4_cm <- 
+
+### create the ROC curve for the 4-th fold
+```
+
+?  
+
+### 4g)
+
+Let's now compare the variability in the ROC curves across the folds to the overall averaged ROC curve for the best tuning parameter values. To create this figure, you will need to make use of the `color` aesthetic within the `geom_roc()` call.  
+
+#### PROBLEM
+
+**Create the `best_svm_rbf_pred` object which filters the tuning parameters to equal their best identified values. You will not filter any of the Resample folds. Use `best_svm_rbf_pred` with two different `geom_roc()` calls. In the first call, set the `color` aesthetic equal to `Resample`. In the second `geom_roc()` do not use any additional aesthetics. In both `geom_roc()` calls set the `cutoff.at` argument equal to 0.5. Do not include any additional reference lines.**  
+
+**The colored ROC curves correspond to the separate Resample folds. How does the overall average ROC curve compare to the fold-to-fold variability? Which fold appears to have the worse performance?**  
+
+#### SOLUTION
+
+```{r, solution_04g, eval=FALSE}
+best_svm_rbf_pred <- fit_svm_rbf_b$pred %>% tbl_df() %>% 
+  filter()
+
+### create the ROC curves comparing the separate resample
+### folds with the resample AVERAGED ROC curve
+```
+
+?  
+
+### 4h)
+
+Let's now compare the ROC curves between logistic regression, elastic net, SVM with linear kernel, and SVM with radial basis kernel. You have the required information contained within `best_svm_rbf_pred` object to create the figure, but not all `caret` `$pred` objects will be the same. The number of columns will vary based upon the number of tuning parameters. Therefore you need to take a few additional steps to enable merging together the results.  
+
+The code chunk below demonstrates how to do that with the results from the logistic regression model. The logistic regression model does not include any tuning parameters, and so it coincides with the "best" tuned model without requiring additional filtering steps. The code chunk uses the `dplyr::select()` function to grab the minimum set of columns needed to make the ROC curve. It then uses the `mutate()` function to create a new column `model_name` which is set to `"GLM"`. The result is saved to the `best_glm_cv_pred`.  
+
+```{r, prob_04h_example, eval=FALSE}
+best_glm_cv_pred <- fit_glm$pred %>% tbl_df() %>% 
+  dplyr::select(pred, obs, event, non_event, rowIndex, Resample) %>% 
+  mutate(model_name = "GLM")
+```
+
+#### PROBLEM
+
+**You will follow the logistic regression example and isolate the best tuning parameter values and put the results into the correct format for the elastic net with all 3-way interactions, the SVM with linear kernel, and the SVM with radial basis kernel.**  
+
+**Name the elastic net model `"GLMNET-3"`. Name the SVM with linear kernel `"SVM-LIN"`. Name the SVM with radial basis kernel `"SVM-RBF"`.**  
+
+#### SOLUTION
+
+```{r, solution_04h, eval=FALSE}
+best_glmnet_3_cv_pred <- fit_glmnet_3_b$pred %>% tbl_df() %>% 
+  filter()
+
+best_svm_lin_cv_pred <- fit_svm_lin$pred %>% tbl_df() %>% 
+  filter()
+
+best_svm_rbf_cv_pred <- fit_svm_rbf_b$pred %>% tbl_df() %>% 
+  filter()
+```
+
+### 4i)
+
+The code chunk below combines all of the best tuning parameter hold-out set predictions together.  
+
+```{r, merge_cv_model_results_a, eval=FALSE}
+best_mod_cv_pred_a <- best_glm_cv_pred %>% 
+  bind_rows(best_glmnet_3_cv_pred) %>% 
+  bind_rows(best_svm_lin_cv_pred) %>% 
+  bind_rows(best_svm_rbf_cv_pred)
+```
+
+The `best_mod_cv_pred_a` object is now in a format suitable for generating separate resample averaged ROC curves for the different models.  
+
+#### PROBLEM
+
+**Create the ROC curves for each model by correctly specifying the `m` and `d` aesthetics within the parent `ggplot()` call. Set the `color` aesthetic within `geom_roc()` equal to `model_name`, and set the `cutoff.at` argument equal to 0.5.**  
+
+**Which model appears the best, based on the Resample averaged ROC curves?**  
+
+#### SOLUTION
+
+```{r, solution_04i, eval=FALSE}
+### compare the models by comparing their resample
+### averaged ROC curves!!!
+```
+
+?  
+
+## Problem 5
+
+You will now train several more complex models. Let's first start with a neural network to predict the binary outcome. You will set the `method` argument equal to `"nnet"` in the call to `train()`. If this is the first you have used `nnet` `caret` will ask if the necessary packages can be downloaded. Check the `R` console for the prompting questions.  
+
+### 5a)
+
+#### PROBLEM
+
+**Use the `caret` default grid search to tune a neural network model. Besides changing the `method` argument to `"nnet"`, the other arguments should be consistent with the other problems. However, it is recommended that you set the `trace` argument to `FALSE`. If you do not all of the iterations will be printed to screen and therefore to your rendered PDF file. SET `trace` to `FALSE`.**  
+
+**After training is complete, WHICH MIGHT TAKE SEVERAL MINUTES, print the `caret` object to screen. Which set of tuning parameters produce the best performing model?**  
+
+#### SOLUTION
+
+```{r, solution_05a, eval=FALSE}
+set.seed(98131)
+fit_nnet_a <- 
+```
+
+```{r, solution_05a_b, eval=FALSE}
+### fit_nnet_a
+```
+
+?  
+
+### 5b)
+
+As you should see from Problem 5a), the tuning parameters to a neural network from `nnet` are `size` and `decay`. `size` is the number of hidden units within the hidden layer, and `decay` is the weight decay of the parameters. Weight decay provides regularization effects to the parameters. The larger the `decay` the stronger a regularizing effect.  
+
+You will now try a custom grid search to study what happens if more hidden units are used within the model.  
+
+#### PROBLEM
+
+**Create a grid, `nnet_grid`, with the `expand.grid()` function. Set the `size` variable to a vector with values of 3, 5, 7, 9, 11, 13, 15. Set the `decay` variable within the grid to be a vector with values 0.1, 0.25, 0.5, and 0.75 Train the neural network model by setting the `tuneGrid` argument equal to `nnet_grid`. BE SURE TO SET `trace` equal to `FALSE`.**  
+
+**Once the training completes, WHICH MIGHT TAKE SEVERAL MINUTES, plot the results using the `plot()` function and print the best tuning values to screen.**  
+
+#### SOLUTION
+
+```{r, solution_05b_a, eval=FALSE}
+nnet_grid <- 
+```
+
+```{r, solution_05b_b, eval=FALSE}
+set.seed(98131)
+fit_nnet_b <- 
+```
+
+```{r, solution_05b_c, eval=FALSE}
+### print out the best tuning parameters
+### and plot the results
+```
+
+
+### 5c)
+
+#### PROBLEM
+
+**Display the confusion matrix percentages associated with the training results. How does the neural network model compare in accuracy with the other models you have built so far?**  
+
+#### SOLUTION
+
+```{r, solution_05c, eval=FALSE}
+### your code here
+```
+
+?  
+
+### 5d)
+
+Next, you will visualize the ROC curve associated with the best neural network model.  
+
+#### PROBLEM
+
+**Filter the hold-out set predictions for the best neural network model. Do not filter based on the Resample. Store the results to `best_nnet_cv_pred`. Follow the same format as the `best_glm_cv_pred` object, by selecting a specific set of the variables and create a new column, `model_name = "NNET"`. Use the variables within `best_nnet_cv_pred` with the `confusionMatrix()` function and store the results to `best_nnet_cm`. Create the Resample averaged ROC curve and compare to the individual Resample Folds ROC curves. For reference, plot the Sensitivity and 1 - Specificity as horizontal and vertical red dashed lines.**  
+
+**How does the Resample averaged ROC curve relate to the individual Fold ROC curves for the neural network model?**  
+**How does the location of the 50% threshold compare to that for the other models?**  
+
+#### SOLUTION
+
+```{r, solution_05d, eval=FALSE}
+best_nnet_cv_pred <- fit_nnet_b$pred %>% tbl_df() %>% 
+  filter()
+
+best_nnet_cm <- 
+
+### ROC curves for the NNET model
+```
+
+?  
+
+### 5e)
+
+We discussed how individual hidden unit parameters cannot be used to intepret input importance with neural networks. We discussed that all of the hidden units and output layer parameters would need to be considered. Although this sounds challenging, methods exist for analyzing such variable importances with neural networks. In `caret`, all you have to do is call the `varImp()` function on the `nnet` associated `caret` model object.  
+
+#### PROBLEM
+
+**Use the `plot()` function to plot the variable importances as viewed by the neural network model. Which inputs are considered to be 20% or less of the importance of the top predictor (feature)?**  
+
+#### SOLUTION
+
+```{r, solution_05e, eval=FALSE}
+### your code here
+```
+
+?  
+
+## Save memory
+
+**NOTE**: To save RAM the code chunk below deletes objects that we will no longer use.  
+
+```{r, save_ram_delt, eval=FALSE}
+rm(fit_glmnet_2, fit_glmnet_3, fit_nnet_a, fit_svm_rbf)
+
+rm(best_svm_rbf_F1_cm, best_svm_rbf_F4_cm, best_svm_rbf_F1_pred, best_svm_rbf_F4_pred)
+
+rm(best_nnet_cm)
+
+rm(best_glm_cv_pred, best_glmnet_3_cv_pred, best_svm_lin_cv_pred, best_svm_rbf_cv_pred)
+```
+
+## Problem 6
+
+You will now build a random forest model using `caret`. The `method` argument within `train()` will be set to `"rf"`. If this is your first time building a random forest model in `R`, `caret` will ask if it can download and install the necessary packages. Please look at the `R` console for the prompt. There are other random forest implementations in `R`, but the one associated with the `"rf"` method is the original.  
+
+### 6a)
+
+As discussed in lecture, the main tuning parameter for a random forest is the number of randomly selected predictors (features) to try at a split, `mtry`. You will use the default number of trees.  
+
+#### PROBLEM
+
+**In the code chunk below create a grid of possible `mtry` values to consider. Set the `mtry` variable within the `expand.grid()` call to be a vector with elements equal to 2, 3, 5, 7. Train the model using arguments consistent with the previous training calls, but set the `rf_grid` equal to the `tuneGrid` argument, and set `method` equal to `"rf"`. Also, include the `importance = TRUE` within the `train()` call.**  
+
+**After training completes, WHICH MIGHT TAKE A FEW MINUTES, print the result to screen. Which value of `mtry` provides the best performing model? Which `mtry` corresponds to a bagged tree model?**  
+
+#### SOLUTION
+
+```{r, solution_06a, eval=FALSE}
+rf_grid <- 
+```
+
+```{r, solution_06a_b, eval=FALSE}
+set.seed(98131)
+fit_rf <- 
+```
+
+```{r, solution_06a_c, eval=FALSE}
+fit_rf
+```
+
+?  
+
+### 6b)
+
+Let's now look at the ROC curve for the best performing random forest model.  
+
+#### PROBLEM
+
+**Extract the hold-out set predictions for the best tuned random forest model and store the result to `best_rf_cv_pred`. Do not filter by Resample. Follow the example with `best_glm_cv_pred` by selecting a specific subset of the variables. Create a new column with `mutate()` with `model_name = "RF"`. Use the variables within `best_rf_cv_pred` and the `confusionMatrix()` function to calculate the confusion matrix, and store the result to `best_rf_cm`. Create the ROC curve similar to that for the neural network model where you compared the resample averaged ROC curve to the ROC curves associated with each resample fold. Include the Sensitivity and 1 - Specificity as reference lines.**  
+
+#### SOLUTION
+
+```{r, solution_06b, eval=FALSE}
+best_rf_cv_pred <- fit_rf$pred %>% tbl_df() %>% 
+  filter()
+
+best_rf_cm <- 
+
+### create the ROC curve for the random forest model
+```
+
+### 6c
+
+#### PROBLEM
+
+**Plot the variable importances as viewed by the random forest model. Do any inputs have a relative importance of less than 20% of the top input? If so, which ones?**  
+
+**How do the variable importances compare between the random forest and neural network models?**  
+
+#### SOLUTION
+
+```{r, solution_06c, eval=FALSE}
+### your code here
+```
+
+?  
+
+## Problem 7
+
+You will now build a boosted tree model using the `method` equal to `"gbm"`. If this is the first time using a `"gbm"` in `R` follow the `R` console prompts to install and download the package. 
+
+### 7a)
+
+As discussed in lecture boosted trees have more tuning parameters compared to the random forest. You will start out considering a default value for the learning rate (the `shrinkage`) of 0.1, while varying the number of trees, `n.trees`, and the interaction depth, `interaction.depth`. You try out two different `n.minobsinnode` values as well.  
+
+#### PROBLEM
+
+**Create a grid of tuning parameter values, `gbm_grid_a`, with the `expand.grid()` function. Set the variable `n.trees` to a vector from 50 to 1050 by 100. Set `interaction.depth` to a vector with values of 1, 9, and 18. Set `n.minobsinnode` to be 5 and 10. Use the default `shrinkage`.**  
+
+**Train the boosted model using arguments consistent with the previous models, except set the `method` to `"gbm"` and `tuneGrid` to `gbm_grid_a`. Set `verbose` to `FALSE` to prevent each iteration from being printed to the screen.**  
+
+**After training is complete, WHICH WILL TAKE A FEW MINUTES, use the `plot()` function to plot the results and print the best tuning parameter values to the screen.**  
+
+#### SOLUTION
+
+```{r, solution_07a_a, eval=FALSE}
+gbm_grid_a <- 
+```
+
+
+```{r, solution_07a_b, eval=FALSE}
+set.seed(98131)
+fit_gbm_a <- 
+```
+
+```{r, solution_07a_c, eval=FALSE}
+### print out the best tuning parameters and plot
+### the results
+```
+
+### 7b)
+
+#### PROBLEM
+
+**Which `interaction.depth` yielded the best results? What do you think that represents about the model behavior?**
+
+#### SOLUTION
+
+?  
+
+### 7c)
+
+Now let's try lowering the learning rate. You will keep the `interaction.depth` fixed to 18 and the `n.minobsinnode` fixed at 5 for this problem.  
+
+#### PROBLEM
+
+**Specify a new grid with `expand.grid()`. Set the variable `n.trees` to be a vector from 250 to 2250 by increments of 500. Set the `shrinkage` to 0.005 and 0.01. Set the `interaction.depth` to 18 and the `n.minobsinnode` equal to 5.**  
+
+**Train the boosted tree, using arguments similar to that in Problem 7a). Be sure to set `verbose` to `FALSE`. After training is complete, print results to screen and plot the results.**  
+
+**THE MODEL WILL TAKE SEVERAL MINUTES TO TRAIN.**  
+
+#### SOLUTION
+
+```{r, solution_07c_a, eval=FALSE}
+gbm_grid_b <- 
+```
+
+```{r, solution_07c_b, eval=FALSE}
+set.seed(98131)
+fit_gbm_b <- 
+```
+
+```{r, solution_07c_c, eval=FALSE}
+fit_gbm_b
+```
+
+```{r, solution_07c_d, eval=FALSE}
+### plot the results
+```
+
+### 7d)
+
+Let's now assemble the two different boosted tree model results into the format to create the ROC curve. You must filter the hold-out set predictions to just the best tuned models, but you do not need to filter by Resample.  
+
+#### PROBLEM
+
+**Create the `best_gbm_cv_pred_a` and `best_gbm_cv_pred_b` objects by filtering the best tuned parameter values. Do not filter by the Resample. Follow the `best_glm_cv_pred` format and select a specific subset of the variables, and `mutate()` a new column. Set the `model_name = "GBM-A"` for `best_gbm_cv_pred_a` and `model_name = "GBM-B"` for `best_gbm_cv_pred_b`.**  
+
+**The second code chunk is completed for you. It merges the two GBM results together into a single object. You must use this new object, `best_gbm_cv_preds`, to compare the two different boosted tree models through ROC curves.**  
+
+**Create the ROC curve by specifying the `m` and `d` aesthetics in the parent `ggplot()` call correctly. Use two `geom_roc()` calls, where the first one sets the `color` aesthetic equal to `Resample` and the second `geom_roc()` call does not specify other additional aesthetics. In each `geom_roc()` call set `cutoff.at` equal to 0.5. This time you must use the `facet_wrap()` function to create a facet based on `model_name`.**  
+
+#### SOLUTION
+
+```{r, solution_07d, eval=FALSE}
+best_gbm_cv_pred_a <- fit_gbm_a$pred %>% tbl_df() %>% 
+  filter()
+
+best_gbm_cv_pred_b <- fit_gbm_b$pred %>% tbl_df() %>% 
+  filter()
+```
+
+```{r, solution_07d_b, eval=FALSE}
+### requires the code chunk above, solution_07d, to
+### be completed properly
+best_gbm_cv_preds <- best_gbm_cv_pred_a %>% 
+  bind_rows(best_gbm_cv_pred_b)
+```
+
+Compare the two boosted trees through their ROC curves.  
+
+```{r, solution_07d_c, eval=FALSE}
+### compare the boosted tree models through their
+### ROC curves
+```
+
+### 7e
+
+It's time to compare the different models based on their ROC curves. The code chunk below merges the neural net, random forest, and the boosted tree model hold-out predictions with the previously compiled model results `best_mod_cv_pred_a`. The new object is named `best_mod_cv_pred_b`, and as a check the the `count()` function is applied to `model_name` to show all of the models of interest are assembled.  
+
+```{r, assemble_mod_preds_b, eval=FALSE}
+best_mod_cv_pred_b <- best_mod_cv_pred_a %>% 
+  bind_rows(best_nnet_cv_pred) %>% 
+  bind_rows(best_rf_cv_pred) %>% 
+  bind_rows(best_gbm_cv_preds)
+
+best_mod_cv_pred_b %>% 
+  count(model_name)
+```
+
+#### PROBLEM
+
+**Create the ROC curves for each model by correctly specifying the `m` and `d` aesthetics within the parent `ggplot()` call. Set the `color` aesthetic within `geom_roc()` equal to `model_name`, and set the `cutoff.at` argument equal to 0.5.**  
+
+**Which model appears the best, based on the Resample averaged ROC curves?**  
+
+#### SOLUTION
+
+```{r, solution_07e, eval=FALSE}
+### compare the models by comparing their resample averaged
+### ROC curves
+```
+
+### 7f)
+
+#### PROBLEM
+
+**Based on the ROC curves in Problem 7d), which is the best performing model?**  
+
+**Which model has the highest Sensitivity at the 50% threshold value?**  
+
+**We have discussed several times in lecture the shape of the "ideal" ROC curve. Based on all of the ROC curves you have generated, can you describe why the "ideal" ROC curve looks the way it does?**  
+
+#### SOLUTION
+
+?  
+
+### 7g)
+
+The `resamples()` function in `caret` allows compiling all of the resample fold results and extracting the best tuned parameter values. It essentially provides a short cut to comparing models, without having to resort to working with the hold-out predictions directly. We needed those predictions in the assignment in order to generate the ROC curves. However, the `resamples()` function allows comparing models even when the predictions were not saved.  
+
+To use the `resamples()` function, each `caret` model object must be assigned to a variable in a list. The code chunk below is started for you for the logistic regression model fit. You will complete the list by assigning the models as specified by the names in the list.  
+
+#### PROBLEM
+
+**Complete the list in the first code chunk below. Once completed, use the `dotplot()` function to summarize the performance metrics across the resample folds for each model. Are the results consistent with your conclusions based on the ROC curves directly?**  
+
+#### SOLUTION
+
+```{r, solution_07g, eval=FALSE}
+mod_results <- resamples(list(GLM = fit_glm,
+                              GLMNET_3 = ,
+                              SVM_LIN = ,
+                              SVM_RBF = ,
+                              NNET = ,
+                              RF = ,
+                              GBM_A = ,
+                              GBM_B = ))
+```
+
+```{r, solution_07g_b, eval=FALSE}
+### call the dotplot function to compare the models
+```
+
+?  
