@@ -1,0 +1,168 @@
+---
+title: "INFSCI 2595: Bonus Homework"
+subtitle: 'Assigned: November 11, 2019, Due: December 04, 2019'
+author: "Your name here"
+date: "Submission time: 12/04/2019 at 9:00AM"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+#### Collaborators
+
+Include the names of your collaborators here.  
+
+## Overview
+
+This bonus assignment is more open ended compared with the required homework assignments. You will need to decide the best approach for solving each problem, and how to properly code up the solutions.  
+
+The data sets associated with each problem are loaded for you.  
+
+## Load packages
+
+The following packages are loaded for you. You will be required to load in any other package that you fill is required to solve the problems.  
+
+```{r, load_packages}
+library(dplyr)
+library(ggplot2)
+```
+
+## Problem 1
+
+Two data sets are loaded for you in the code chunk below. The first, `train_01`, is the training set and the second `test_01` is a test set. The training set consists of a single input `x` and a response `y`. A glimpse is provided. The test set only consists of the input `x`, and a glimpse is also provided. As shown by the glimpses, the training set consists of 25 observations, and the test set consists of 55 input values.  
+
+```{r, read_in_prob_01_data}
+train_01 <- readr::read_csv("https://raw.githubusercontent.com/jyurko/INFSCI_2595_Fall_2019/master/hw_data/bonus/hw_bonus_prob_01_train.csv")
+
+test_01 <- readr::read_csv("https://raw.githubusercontent.com/jyurko/INFSCI_2595_Fall_2019/master/hw_data/bonus/hw_bonus_prob_01_prediction_grid.csv")
+```
+
+```{r, show_prob_01_glimpse}
+### show the glimpse of the training set
+train_01 %>% glimpse()
+
+### show the glimpse of the test set
+test_01 %>% glimpse()
+```
+
+You will fit a Bayesian linear model between the response `y` and the input `x`. You can assume a linear relationship between the two. It is recommended you use Gaussian priors on the unknown slope and intercept, and an Exponential prior on the unknown likelihood standard deviation. After fitting the Bayesian linear model, you will make posterior predictions on the provided test set. Rather than focusing on calculating the posterior predicted mean with respect to the input, you will calculate the probability that the response is between 1 and 2 with respect to the input.  
+
+#### PROBLEM
+
+**You must fit a Bayesian linear model between the response `y` and the input `x`. Write all expressions for your probabilistic model, including the likelihood, the linear predictor relationship, and the prior distributions. To receive full credit you must:**  
+
+**1.Fit the Bayesian linear model**  
+**2.Draw posterior samples on the parameters**  
+**3.Make posterior predictions on the test set, `test_01`**  
+**4.Calculate the posterior probability that the response `y` is between 1 and 2 as a function of `x`**  
+
+#### SOLUTION
+
+Type your model here.  
+
+```{r, solution_01}
+### your code here
+```
+
+
+## Problem 2
+
+A data set is loaded for you in the code chunk below. The glimpse shows that there are 10 variables and 201 observations. The `y` variable is a continuous response, and so the other nine variables, `x01` through `x09` are to be considered as inputs.  
+
+```{r, read_in_prob_02_data}
+train_02 <- readr::read_csv("https://raw.githubusercontent.com/jyurko/INFSCI_2595_Fall_2019/master/hw_data/bonus/hw_bonus_prob_02_train.csv")
+
+train_02 %>% glimpse()
+```
+
+The response is visualized as a scatter plot with respect to each of the 9 inputs in the code chunk below. Each facet corresponds to a separate input variable.  
+
+```{r, viz_prob_02_y_vs_x}
+train_02 %>% 
+  tibble::rowid_to_column("obs_id") %>% 
+  tidyr::gather(key = "key", value = "input_value",
+                -obs_id, -y) %>% 
+  ggplot(mapping = aes(x = input_value,
+                       y = y)) +
+  geom_point(alpha = 0.5) +
+  facet_wrap(~key) +
+  theme_bw()
+```
+
+You will work to understand which input or combination of inputs (interactions) influence the response. You must consider up to and including **all** 3-way interactions. Because there are many 3-way interactions, you are permitted to use functions rather than coding up the models directly.  
+
+#### PROBLEM
+
+**You must train a linear model as well as regularized models in order to identify the limited number of inputs or combinations of inputs that drive the response. You must consider up to and including all 3-way interactions between the 9 inputs. To get full credit for the problem you must:**  
+
+**1. Train a standard linear model consisting of just the 9 inputs (no interactions), as well as a linear model allowing for all 3-way interactions. Discuss how the parameter estimates change due to including the interaction terms.**  
+**2. Train a regularized linear model accounting for all 3-way interactions. How do the parameter estimate results differ between the regularized and standard linear models?**  
+**3. Regularization methods require tuning the regularization or penalty factor. Describe how that factor can be tuned using the existing data. Perform the tuning.**  
+**4. Discuss the final tuned model results. Which inputs or combination of the inputs are considered important?**  
+
+#### SOLUTION
+
+```{r, solution_02}
+### your code here
+```
+
+Include discussion as required.  
+
+## Problem 3
+
+The code chunk below reads in and provides a glimpse of a training set. The response `y` is a binary outcome, taking on two possible values `"event"` and `"non-event"`. The inputs, `x1` through `x4`, consist of two types of variables. The first two inputs, `x1` and `x2`, are continuous variables, and the last two, `x3` and `x4` are binary variables.  
+
+```{r, read_in_prob_03_train_data}
+train_03 <- readr::read_csv("https://raw.githubusercontent.com/jyurko/INFSCI_2595_Fall_2019/master/hw_data/bonus/hw_bonus_prob_03_train.csv",
+                            col_types = list(readr::col_double(),
+                                             readr::col_double(),
+                                             readr::col_factor(levels = c("A", "B")),
+                                             readr::col_factor(levels = c("C", "D")),
+                                             readr::col_factor(levels = c("event", "non-event"))))
+
+train_03 %>% glimpse()
+```
+
+The code chunk below uses the `summary()` function to display basic summary information associated each variable. Notice that for the binary inputs and the binary response the number of observation per unique level is displayed.  
+
+```{r, show_prob_03_train_summary}
+train_03 %>% summary()
+```
+
+The code chunk below reads in two additional data sets. The first is a hold-out set which includes the 4 inputs and the response. The second is a "prediction grid" which only contains the 4 inputs.  
+
+```{r, read_in_prob_03_test_sets}
+test_03 <- readr::read_csv("https://raw.githubusercontent.com/jyurko/INFSCI_2595_Fall_2019/master/hw_data/bonus/hw_bonus_prob_03_test.csv",
+                           col_types = list(readr::col_double(),
+                                            readr::col_double(),
+                                            readr::col_factor(levels = c("A", "B")),
+                                            readr::col_factor(levels = c("C", "D")),
+                                            readr::col_factor(levels = c("event", "non-event"))))
+
+input_grid_03 <- readr::read_csv("https://raw.githubusercontent.com/jyurko/INFSCI_2595_Fall_2019/master/hw_data/bonus/hw_bonus_prob_03_prediction_grid.csv",
+                                 col_types = list(readr::col_double(),
+                                                  readr::col_double(),
+                                                  readr::col_factor(levels = c("A", "B")),
+                                                  readr::col_factor(levels = c("C", "D"))))
+```
+
+You will build binary classification models using the training data set `train_03`. You will compare various models through cross-validation metrics, as well as by comparing performance on the hold-out test set. You will then predict the "prediction grid" using the top two performing models in order to visualize the probability of the event. You are permitted to use `caret` to handle the cross-validation and the training of the models. When training the models use `"Accuracy"` as the primary performance metric.  
+
+#### PROBLEM
+
+**To receive full credit you must perform the following:**  
+
+**1. Train at least 5 classification models ranging from simple to complex.**  
+**2. Compare the performance of the various models through cross-validation.**  
+**3. Predict the hold-out set with all of the models and assess the accuracy on the hold-out set. Are the results consistent with the training cross-validation results?**  
+**4. Select the top 2 performing models and make predictions of the probability of the event with the `input_grid_03` data set. Visualize the predicted probability as a surface with respect to `x1` and `x2` with separate facets based on `x3` and `x4`.**  
+**5. You must retrain the models with `"ROC"` as the primary performance metric. Do your conclusions change?**  
+
+#### SOLUTION
+
+```{r, solution_03}
+### your code here
+```
+
